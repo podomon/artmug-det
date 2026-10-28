@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Vertical</title>
+<style>
+  /* ===== 색상만 여기서 바꾸면 전체 분위기가 바뀌어요 ===== */
+  :root{
+    --accent:#f4a261;        /* 포인트 색 (아트머그 상세페이지 주황톤) */
+    --accent-soft:#f9cb9c;   /* 연한 포인트 */
+    --text:#444;
+    --bg:#ffffff;
+    --frame:transparent;     /* 슬라이드 뒤 배경 (예전 값: #fff7f0) */
+    --ratio:3/4;             /* 세로 그림 비율 (가로/세로). 예: 2/3, 9/16 */
+    --width:640px;           /* 배너 최대 너비. 키우면 그림도 커져요 */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;color:var(--text);overflow:hidden}
+
+  .pf{position:relative;width:100%;max-width:var(--width);margin:0 auto;padding:0 0 18px}
+
+  /* 슬라이드 영역 (세로형) */
+  .stage{position:relative;width:100%;aspect-ratio:var(--ratio);overflow:hidden;border-radius:14px;background:var(--frame);touch-action:pan-y;user-select:none}
+  .track{display:flex;height:100%;transition:transform .55s cubic-bezier(.22,.8,.24,1);will-change:transform}
+  .slide{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center}
+  .slide img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
+  .slide .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:clamp(18px,4vw,40px);font-weight:700;color:#fff}
+
+  /* 화살표 */
+  .nav{position:absolute;top:50%;transform:translateY(-50%);width:clamp(34px,5vw,48px);height:clamp(34px,5vw,48px);border:none;border-radius:50%;background:rgba(255,255,255,.85);color:var(--text);font-size:clamp(18px,2.6vw,26px);line-height:1;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12);transition:background .2s,transform .2s;z-index:2}
+  .nav:hover{background:#fff;transform:translateY(-50%) scale(1.06)}
+  .prev{left:12px}.next{right:12px}
+
+  /* 카운터 */
+  .count{position:absolute;right:14px;bottom:12px;padding:4px 11px;border-radius:20px;background:rgba(0,0,0,.45);color:#fff;font-size:12px;letter-spacing:.06em;z-index:2}
+  .count b{color:var(--accent-soft)}
+
+  /* 진행바 (자동재생 타이머) */
+  .bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);z-index:2}
+  .bar.run{transition:width linear}
+
+  /* 썸네일 */
+  .dots{display:flex;gap:8px;margin-top:12px;overflow-x:auto;scroll-behavior:smooth;padding:4px 2px 6px;scrollbar-width:thin;scrollbar-color:var(--accent-soft) transparent}
+  .dots::-webkit-scrollbar{height:5px}
+  .dots::-webkit-scrollbar-thumb{background:var(--accent-soft);border-radius:5px}
+  .dot{flex:0 0 calc((100% - 32px) / 5);width:calc((100% - 32px) / 5);aspect-ratio:var(--ratio);border:2px solid transparent;border-radius:8px;overflow:hidden;background:var(--frame);cursor:pointer;padding:0;opacity:.5;transition:opacity .25s,border-color .25s,transform .25s}
+  .dot:hover{opacity:.85}
+  .dot.on{opacity:1;border-color:var(--accent);transform:translateY(-2px)}
+  .dot img{width:100%;height:100%;object-fit:cover;display:block}
+  .dot .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+
+  .cap{margin-top:10px;display:flex;justify-content:center;align-items:baseline;flex-wrap:wrap;gap:4px 10px;font-size:14px;color:#666;min-height:1.4em}
+  .cap .date{font-size:12px;color:#aaa;letter-spacing:.03em}
+  .cap .text + .date::before{content:'·';margin-right:10px;color:#ccc}
+  .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#aaa}
+</style>
+</head>
+<body>
+<div class="pf" id="pf">
+  <div class="stage" id="stage">
+    <div class="track" id="track"></div>
+    <div class="loading" id="loading">불러오는 중…</div>
+    <button class="nav prev" id="prev" aria-label="이전">‹</button>
+    <button class="nav next" id="next" aria-label="다음">›</button>
+    <div class="count" id="count"></div>
+    <div class="bar" id="bar"></div>
+  </div>
+  <div class="cap" id="cap" style="display:none"></div>
+  <div class="dots" id="dots"></div>
+</div>
+
+<script>
+/* =========================================================
+   설정 — 여기만 고치면 돼요
+   images 폴더에 1.jpg, 2.png, 3.gif … 처럼 번호로 올리면
+   자동으로 찾아서 슬라이드에 추가됩니다. (번호가 끊기면 거기서 멈춤)
+   ========================================================= */
+const CONFIG = {
+  // 구글 시트 주소를 넣으세요. (공유 링크, 웹에 게시 주소 모두 OK)
+  // 비워두면 아래 images 폴더 번호 방식으로 동작해요.
+  sheet: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT39JwHJa-gjRLt8RMW3UIRhc6ilh68845r5p68WYtfpBDezsV8nj4-X7_auhTLn8XoraJObV9E85ED/pub?gid=718185590&single=true&output=csv',
+  folder: 'images/',
+  exts: ['jpg', 'png', 'gif', 'webp', 'jpeg'],
+  max: 60,            // 최대 몇 장까지 찾을지
+  autoplay: 0,        // 자동 넘김 간격(ms). 0이면 꺼짐 (켜려면 예: 4000)
+  newestFirst: true,  // true: 시트 맨 아래(마지막에 추가한) 그림이 첫 번째로 / false: 시트 순서 그대로
+};
+
+const $ = id => document.getElementById(id);
+const track = $('track'), dotsEl = $('dots'), countEl = $('count'), bar = $('bar');
+let slides = [], idx = 0, timer = null, paused = false;
+
+/* 번호 순서대로 이미지가 있는지 확인 */
+function probe(n){
+  return new Promise(resolve => {
+    let i = 0;
+    const tryNext = () => {
+      if (i >= CONFIG.exts.length) return resolve(null);
+      const src = `${CONFIG.folder}${n}.${CONFIG.exts[i++]}`;
+      const img = new Image();
+      img.onload = () => resolve(src);
+      img.onerror = tryNext;
+      img.src = src;
+    };
+    tryNext();
+  });
+}
+
+async function findImages(){
+  const found = [];
+  for (let n = 1; n <= CONFIG.max; n++){
+    const src = await probe(n);
+    if (!src) break;
+    found.push({ src, cap: '' });
+  }
+  return found;
+}
+
+/* ---------- 구글 시트에서 목록 읽기 ---------- */
+function parseCSV(text){
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){
+      if (c === '"' && text[i+1] === '"'){ cell += '"'; i++; }
+      else if (c === '"') q = false;
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r'){
+      if (c === '\r' && text[i+1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+/* 구글 드라이브 공유 링크를 이미지로 바로 보이는 주소로 바꿔줌 */
+function fixUrl(u){
+  u = u.trim();
+  const m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]+)/);
+  if (m) return `https://lh3.googleusercontent.com/d/${m[1]}`;
+  // 드롭박스 공유 링크 → 이미지 원본 주소 (dl=0 을 raw=1 로)
+  if (/(^https?:\/\/)(www\.)?dropbox\.com\//.test(u)){
+    u = u.replace(/([?&])(dl|raw)=[01]/g, '$1').replace(/[?&]+$/, '').replace(/\?&/, '?');
+    return u + (u.includes('?') ? '&' : '?') + 'raw=1';
+  }
+  return u;
+}
+
+/* 시트 편집 링크(.../edit?usp=sharing)를 넣어도 CSV 주소로 바꿔줌 */
+function sheetCsvUrl(u){
+  u = u.trim();
+  const m = u.match(/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,})/);   // 게시용(/d/e/...)은 그대로 사용
+  if (m && !/\/d\/e\//.test(u)){
+    const gid = (u.match(/[#&?]gid=(\d+)/) || [])[1];
+    return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv` + (gid ? `&gid=${gid}` : '');
+  }
+  // 웹에 게시 주소: 웹페이지(pubhtml) 형식이어도 CSV로 바꿔줌
+  const p = u.match(/docs\.google\.com\/spreadsheets\/d\/e\/([\w-]+)\/pub(?:html)?/);
+  if (p){
+    const gid = (u.match(/[#&?]gid=(\d+)/) || [])[1];
+    return `https://docs.google.com/spreadsheets/d/e/${p[1]}/pub?output=csv` + (gid ? `&gid=${gid}&single=true` : '');
+  }
+  return u;
+}
+
+async function loadSheet(){
+  const base = sheetCsvUrl(CONFIG.sheet);
+  const url = base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('sheet ' + res.status);
+  return parseCSV(await res.text())
+    .slice(1)                                  // 1행(제목줄)은 건너뜀
+    .filter(r => r[0] && /^https?:\/\//.test(r[0].trim()))
+    .map(r => ({ src: fixUrl(r[0]), cap: (r[1] || '').trim(), date: (r[2] || '').trim() }));   // A 이미지 / B 설명 / C 날짜
+}
+
+async function loadList(){
+  let list = null;
+  if (CONFIG.sheet){
+    try { list = await loadSheet(); }
+    catch(e){ console.warn('시트를 불러오지 못해 images 폴더를 사용합니다', e); }
+  }
+  if (!list) list = await findImages();
+  return CONFIG.newestFirst ? list.reverse() : list;
+}
+
+function build(list){
+  $('loading').remove();
+  if (!list.length){
+    // 이미지가 아직 없을 때 보여줄 미리보기
+    const colors = [
+      '#f4a261,#e76f51','#f9cb9c,#f4a261','#e9c46a,#f4a261','#ffb4a2,#e5989b',
+      '#b5838d,#6d6875','#a8dadc,#457b9d','#cdb4db,#ffc8dd','#bde0fe,#a2d2ff',
+      '#90be6d,#43aa8b','#f8961e,#f94144','#ffd6a5,#fdffb6','#caffbf,#9bf6ff',
+      '#f28482,#f5cac3','#84a59d,#f6bd60','#577590,#4d908e','#ff99c8,#fcf6bd'
+    ];
+    // 샘플에도 설명을 넣어서 B열이 어떻게 보이는지 미리 확인 가능
+    const caps = [
+      ['스텔라이브 5기 팝업스토어 단체 SD 일러스트', '2025.12'],
+      ['CHARON UNIVERSE PJX 단체 SD 일러스트', '2026.08'],
+      ['', ''],                       // B·C열을 비워두면 설명 줄이 사라져요
+      ['', '2026.10'],                // 날짜만 넣은 경우
+      ['방송 대기화면 움짤 작업물', '']  // 설명만 넣은 경우
+    ];
+    list = colors.map((c,i)=>{ const [cap, date] = caps[i % caps.length]; return {ph:`SAMPLE ${i+1}`, c, cap, date}; });
+  }
+  slides = list;
+  list.forEach((s,i) => {
+    const d = document.createElement('div');
+    d.className = 'slide';
+    if (s.ph){
+      d.innerHTML = `<div class="ph" style="background:linear-gradient(135deg,${s.c})">${s.ph}</div>`;
+    } else {
+      const img = document.createElement('img');
+      img.src = s.src; img.alt = s.cap || `포트폴리오 ${i+1}`;
+      img.loading = i < 2 ? 'eager' : 'lazy';
+      img.decoding = 'async';
+      d.appendChild(img);
+    }
+    track.appendChild(d);
+
+    const dot = document.createElement('button');
+    dot.className = 'dot'; dot.setAttribute('aria-label', `${i+1}번`);
+    if (s.ph){
+      dot.innerHTML = `<div class="ph" style="background:linear-gradient(135deg,${s.c})">${i+1}</div>`;
+    } else {
+      const t = document.createElement('img');
+      t.src = s.src; t.alt = ''; t.loading = 'lazy'; t.decoding = 'async';
+      dot.appendChild(t);
+    }
+    dot.onclick = () => go(i);
+    dotsEl.appendChild(dot);
+  });
+  if (slides.length < 2){ $('prev').style.display = $('next').style.display = 'none'; dotsEl.style.display='none'; }
+  go(0, true);
+  sendHeight();
+}
+
+function go(i, instant){
+  const n = slides.length;
+  idx = (i + n) % n;
+  if (instant) track.style.transition = 'none';
+  track.style.transform = `translateX(${-idx * 100}%)`;
+  if (instant) requestAnimationFrame(()=> track.style.transition = '');
+  [...dotsEl.children].forEach((d,k)=>d.classList.toggle('on', k===idx));
+  // 선택된 썸네일이 가운데 오도록 썸네일 줄만 스크롤 (상세페이지 전체는 안 움직임)
+  const cur = dotsEl.children[idx];
+  if (cur) dotsEl.scrollLeft = cur.offsetLeft - dotsEl.offsetLeft - (dotsEl.clientWidth - cur.offsetWidth) / 2;
+  // 설명 + 날짜 (둘 다 비면 줄 자체를 숨김)
+  const cap = slides[idx].cap || '', date = slides[idx].date || '';
+  const capEl = $('cap');
+  capEl.textContent = '';
+  if (cap){ const t = document.createElement('span'); t.className = 'text'; t.textContent = cap; capEl.appendChild(t); }
+  if (date){ const d = document.createElement('span'); d.className = 'date'; d.textContent = date; capEl.appendChild(d); }
+  capEl.style.display = (cap || date) ? '' : 'none';
+  countEl.innerHTML = `<b>${String(idx+1).padStart(2,'0')}</b> / ${String(n).padStart(2,'0')}`;
+  // 다음 이미지 미리 로딩 → 넘길 때 버벅임 감소
+  const nextImg = track.children[(idx+1)%n]?.querySelector('img');
+  if (nextImg) nextImg.loading = 'eager';
+  restart();
+}
+
+/* 자동재생 + 진행바 */
+function restart(){
+  clearTimeout(timer);
+  bar.classList.remove('run'); bar.style.width = '0';
+  if (!CONFIG.autoplay || paused || slides.length < 2) return;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    bar.style.transitionDuration = CONFIG.autoplay + 'ms';
+    bar.classList.add('run'); bar.style.width = '100%';
+  }));
+  timer = setTimeout(()=>go(idx+1), CONFIG.autoplay);
+}
+
+$('prev').onclick = () => go(idx-1);
+$('next').onclick = () => go(idx+1);
+
+const stage = $('stage');
+stage.addEventListener('mouseenter', ()=>{ paused = true; restart(); });
+stage.addEventListener('mouseleave', ()=>{ paused = false; restart(); });
+document.addEventListener('keydown', e=>{
+  if (e.key==='ArrowLeft') go(idx-1);
+  if (e.key==='ArrowRight') go(idx+1);
+});
+
+/* 폰에서 손가락으로 넘기기 */
+let sx = 0, dx = 0, dragging = false;
+stage.addEventListener('touchstart', e=>{ sx = e.touches[0].clientX; dx = 0; dragging = true; track.style.transition='none'; clearTimeout(timer); }, {passive:true});
+stage.addEventListener('touchmove', e=>{
+  if(!dragging) return;
+  dx = e.touches[0].clientX - sx;
+  track.style.transform = `translateX(calc(${-idx*100}% + ${dx}px))`;
+}, {passive:true});
+stage.addEventListener('touchend', ()=>{
+  dragging = false; track.style.transition = '';
+  if (Math.abs(dx) > 50) go(dx < 0 ? idx+1 : idx-1); else go(idx);
+});
+
+/* 아트머그 상세페이지(부모)에 높이 알려주기 → iframe 높이 자동 맞춤 */
+function sendHeight(){
+  const h = Math.ceil(document.getElementById('pf').getBoundingClientRect().height);
+  if (window.parent !== window) parent.postMessage({ type:'resize', height:h }, '*');
+}
+window.addEventListener('resize', sendHeight);
+if ('ResizeObserver' in window) new ResizeObserver(sendHeight).observe($('pf'));
+
+loadList().then(build);
+</script>
+</body>
+</html>
