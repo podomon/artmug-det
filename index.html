@@ -48,7 +48,9 @@
   .dot img{width:100%;height:100%;object-fit:cover;display:block}
   .dot .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
 
-  .cap{margin-top:10px;text-align:center;font-size:14px;color:#666;min-height:1.4em}
+  .cap{margin-top:10px;display:flex;justify-content:center;align-items:baseline;flex-wrap:wrap;gap:4px 10px;font-size:14px;color:#666;min-height:1.4em}
+  .cap .date{font-size:12px;color:#aaa;letter-spacing:.03em}
+  .cap .text + .date::before{content:'·';margin-right:10px;color:#ccc}
   .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;color:#aaa}
 </style>
 </head>
@@ -73,13 +75,14 @@
    자동으로 찾아서 슬라이드에 추가됩니다. (번호가 끊기면 거기서 멈춤)
    ========================================================= */
 const CONFIG = {
-  // 구글 시트 [파일 > 공유 > 웹에 게시 > CSV] 로 받은 주소를 넣으세요.
+  // 구글 시트 주소를 넣으세요. (공유 링크, 웹에 게시 주소 모두 OK)
   // 비워두면 아래 images 폴더 번호 방식으로 동작해요.
   sheet: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT39JwHJa-gjRLt8RMW3UIRhc6ilh68845r5p68WYtfpBDezsV8nj4-X7_auhTLn8XoraJObV9E85ED/pub?output=csv',
   folder: 'images/',
   exts: ['jpg', 'png', 'gif', 'webp', 'jpeg'],
   max: 60,            // 최대 몇 장까지 찾을지
   autoplay: 0,        // 자동 넘김 간격(ms). 0이면 꺼짐 (켜려면 예: 4000)
+  newestFirst: true,  // true: 시트 맨 아래(마지막에 추가한) 그림이 첫 번째로 / false: 시트 순서 그대로
 };
 
 const $ = id => document.getElementById(id);
@@ -145,22 +148,42 @@ function fixUrl(u){
   return u;
 }
 
+/* 시트 편집 링크(.../edit?usp=sharing)를 넣어도 CSV 주소로 바꿔줌 */
+function sheetCsvUrl(u){
+  u = u.trim();
+  const m = u.match(/docs\.google\.com\/spreadsheets\/d\/([\w-]{20,})/);   // 게시용(/d/e/...)은 그대로 사용
+  if (m && !/\/d\/e\//.test(u)){
+    const gid = (u.match(/[#&?]gid=(\d+)/) || [])[1];
+    return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv` + (gid ? `&gid=${gid}` : '');
+  }
+  // 웹에 게시 주소: 웹페이지(pubhtml) 형식이어도 CSV로 바꿔줌
+  const p = u.match(/docs\.google\.com\/spreadsheets\/d\/e\/([\w-]+)\/pub(?:html)?/);
+  if (p){
+    const gid = (u.match(/[#&?]gid=(\d+)/) || [])[1];
+    return `https://docs.google.com/spreadsheets/d/e/${p[1]}/pub?output=csv` + (gid ? `&gid=${gid}&single=true` : '');
+  }
+  return u;
+}
+
 async function loadSheet(){
-  const url = CONFIG.sheet + (CONFIG.sheet.includes('?') ? '&' : '?') + 't=' + Date.now();
+  const base = sheetCsvUrl(CONFIG.sheet);
+  const url = base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
   const res = await fetch(url);
   if (!res.ok) throw new Error('sheet ' + res.status);
   return parseCSV(await res.text())
     .slice(1)                                  // 1행(제목줄)은 건너뜀
     .filter(r => r[0] && /^https?:\/\//.test(r[0].trim()))
-    .map(r => ({ src: fixUrl(r[0]), cap: (r[1] || '').trim() }));
+    .map(r => ({ src: fixUrl(r[0]), cap: (r[1] || '').trim(), date: (r[2] || '').trim() }));   // A 이미지 / B 설명 / C 날짜
 }
 
 async function loadList(){
+  let list = null;
   if (CONFIG.sheet){
-    try { return await loadSheet(); }
+    try { list = await loadSheet(); }
     catch(e){ console.warn('시트를 불러오지 못해 images 폴더를 사용합니다', e); }
   }
-  return findImages();
+  if (!list) list = await findImages();
+  return CONFIG.newestFirst ? list.reverse() : list;
 }
 
 function build(list){
@@ -175,12 +198,13 @@ function build(list){
     ];
     // 샘플에도 설명을 넣어서 B열이 어떻게 보이는지 미리 확인 가능
     const caps = [
-      '스텔라이브 5기 팝업스토어 단체 SD 일러스트 (2025.12)',
-      'CHARON UNIVERSE PJX 단체 SD 일러스트 (2026.08)',
-      '', // B열을 비워두면 설명 줄이 사라져요
-      '방송 대기화면 움짤 작업물'
+      ['스텔라이브 5기 팝업스토어 단체 SD 일러스트', '2025.12'],
+      ['CHARON UNIVERSE PJX 단체 SD 일러스트', '2026.08'],
+      ['', ''],                       // B·C열을 비워두면 설명 줄이 사라져요
+      ['', '2026.10'],                // 날짜만 넣은 경우
+      ['방송 대기화면 움짤 작업물', '']  // 설명만 넣은 경우
     ];
-    list = colors.map((c,i)=>({ph:`SAMPLE ${i+1}`, c, cap: caps[i % caps.length]}));
+    list = colors.map((c,i)=>{ const [cap, date] = caps[i % caps.length]; return {ph:`SAMPLE ${i+1}`, c, cap, date}; });
   }
   slides = list;
   list.forEach((s,i) => {
@@ -224,9 +248,13 @@ function go(i, instant){
   // 선택된 썸네일이 가운데 오도록 썸네일 줄만 스크롤 (상세페이지 전체는 안 움직임)
   const cur = dotsEl.children[idx];
   if (cur) dotsEl.scrollLeft = cur.offsetLeft - dotsEl.offsetLeft - (dotsEl.clientWidth - cur.offsetWidth) / 2;
-  const cap = slides[idx].cap || '';
-  $('cap').textContent = cap;
-  $('cap').style.display = cap ? '' : 'none';
+  // 설명 + 날짜 (둘 다 비면 줄 자체를 숨김)
+  const cap = slides[idx].cap || '', date = slides[idx].date || '';
+  const capEl = $('cap');
+  capEl.textContent = '';
+  if (cap){ const t = document.createElement('span'); t.className = 'text'; t.textContent = cap; capEl.appendChild(t); }
+  if (date){ const d = document.createElement('span'); d.className = 'date'; d.textContent = date; capEl.appendChild(d); }
+  capEl.style.display = (cap || date) ? '' : 'none';
   countEl.innerHTML = `<b>${String(idx+1).padStart(2,'0')}</b> / ${String(n).padStart(2,'0')}`;
   // 다음 이미지 미리 로딩 → 넘길 때 버벅임 감소
   const nextImg = track.children[(idx+1)%n]?.querySelector('img');
