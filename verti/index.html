@@ -13,7 +13,7 @@
     --bg:#ffffff;
     --frame:transparent;     /* 슬라이드 뒤 배경 (예전 값: #fff7f0) */
     --ratio:3/4;             /* 세로 그림 비율 (가로/세로). 예: 2/3, 9/16 */
-    --width:1180px;           /* 배너 최대 너비. 키우면 그림도 커져요 */
+    --width:1180px;          /* 배너 최대 너비. 키우면 그림도 커져요 (예전 값: 640px) */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;color:var(--text);overflow:hidden}
@@ -28,7 +28,7 @@
   .slide .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:clamp(18px,4vw,40px);font-weight:700;color:#fff}
 
   /* 화살표 */
-  .nav{position:absolute;top:50%;transform:translateY(-50%);width:clamp(34px,5vw,48px);height:clamp(34px,5vw,48px);border:none;border-radius:50%;background:rgba(255,255,255,.85);color:var(--text);font-size:clamp(18px,2.6vw,26px);line-height:1;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12);transition:background .2s,transform .2s;z-index:2}
+  .nav{position:absolute;top:50%;transform:translateY(-50%);width:clamp(44px,7vw,72px);height:clamp(44px,7vw,72px);border:none;border-radius:50%;background:rgba(255,255,255,.85);color:var(--text);font-size:clamp(24px,3.6vw,40px);line-height:1;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12);transition:background .2s,transform .2s;z-index:2}
   .nav:hover{background:#fff;transform:translateY(-50%) scale(1.06)}
   .prev{left:12px}.next{right:12px}
 
