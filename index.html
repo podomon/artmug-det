@@ -11,7 +11,7 @@
     --accent-soft:#f9cb9c;   /* 연한 포인트 */
     --text:#444;
     --bg:#ffffff;
-    --frame:#fff7f0;         /* 슬라이드 뒤 배경 */
+    --frame:transparent;     /* 슬라이드 뒤 배경 (예전 값: #fff7f0) */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",sans-serif;color:var(--text);overflow:hidden}
@@ -42,7 +42,7 @@
   .dots{display:flex;gap:8px;margin-top:12px;overflow-x:auto;scroll-behavior:smooth;padding:4px 2px 6px;scrollbar-width:thin;scrollbar-color:var(--accent-soft) transparent}
   .dots::-webkit-scrollbar{height:5px}
   .dots::-webkit-scrollbar-thumb{background:var(--accent-soft);border-radius:5px}
-  .dot{flex:0 0 auto;width:clamp(72px,12vw,120px);aspect-ratio:16/9;border:2px solid transparent;border-radius:8px;overflow:hidden;background:var(--frame);cursor:pointer;padding:0;opacity:.5;transition:opacity .25s,border-color .25s,transform .25s}
+  .dot{flex:0 0 calc((100% - 32px) / 5);width:calc((100% - 32px) / 5);aspect-ratio:16/9;border:2px solid transparent;border-radius:8px;overflow:hidden;background:var(--frame);cursor:pointer;padding:0;opacity:.5;transition:opacity .25s,border-color .25s,transform .25s}
   .dot:hover{opacity:.85}
   .dot.on{opacity:1;border-color:var(--accent);transform:translateY(-2px)}
   .dot img{width:100%;height:100%;object-fit:cover;display:block}
@@ -75,11 +75,11 @@
 const CONFIG = {
   // 구글 시트 [파일 > 공유 > 웹에 게시 > CSV] 로 받은 주소를 넣으세요.
   // 비워두면 아래 images 폴더 번호 방식으로 동작해요.
-  sheet: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT39JwHJa-gjRLt8RMW3UIRhc6ilh68845r5p68WYtfpBDezsV8nj4-X7_auhTLn8XoraJObV9E85ED/pub?gid=0&single=true&output=csv',
+  sheet: 'https://docs.google.com/spreadsheets/d/1EJUFXutgcoCxcuZqDV53crjG2qoTswomoTzbBVCEOsc/edit?usp=sharing',
   folder: 'images/',
   exts: ['jpg', 'png', 'gif', 'webp', 'jpeg'],
   max: 60,            // 최대 몇 장까지 찾을지
-  autoplay: 0,     // 자동 넘김 간격(ms). 끄려면 0
+  autoplay: 0,        // 자동 넘김 간격(ms). 0이면 꺼짐 (켜려면 예: 4000)
 };
 
 const $ = id => document.getElementById(id);
